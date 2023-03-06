@@ -1,0 +1,74 @@
+mkdir /home/keenable/elasticsearch/data -p
+mkdir /home/keenable/elasticsearch/config -p
+podman run -d  --name elasticsearch  -e discovery.type=single-node elasticsearch:8.4.3
+
+podman cp elasticsearch:/usr/share/elasticsearch/data /home/keenable/elasticsearch/
+
+podman cp elasticsearch:/usr/share/elasticsearch/config /home/keenable/elasticsearch/
+
+podman unshare chown -R 1000 /home/keenable/elasticsearch/
+=============================
+
+#!/bin/bash
+
+##Create a pod with name elk and expose ports for elasticsearch and kibana
+podman pod create --name elk --publish 9200:9200 --publish 9300:9300 --publish 5601:5601
+##Create an elastic container, give it the desired environment variables, attach it to the created pod
+podman run -dt \
+    --pod elk \
+    --name elasticsearch \
+    -e discovery.type=single-node \
+    -v /home/keenable/elasticsearch/config:/usr/share/elasticsearch/config \
+    -v /home/keenable/elasticsearch/data:/usr/share/elasticsearch/data \
+    elasticsearch:8.4.3
+##Create a kibana container, attach it to the created pod - by default it attaches to elasticsearch at http://localhost:9200
+podman run -dt \
+--pod elk \
+--name kibana \
+       kibana:8.4.3
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=========================
+keenable@keenable-Latitude-E7470:~$ podman logs -f kibana
+[2022-10-27T08:06:44.208+00:00][INFO ][node] Kibana process configured with roles: [background_tasks, ui]
+[2022-10-27T08:07:06.900+00:00][INFO ][http.server.Preboot] http server running at http://0.0.0.0:5601
+[2022-10-27T08:07:06.960+00:00][INFO ][plugins-system.preboot] Setting up [1] plugins: [interactiveSetup]
+[2022-10-27T08:07:06.964+00:00][INFO ][preboot] "interactiveSetup" plugin is holding setup: Validating Elasticsearch connection configuration…
+[2022-10-27T08:07:07.018+00:00][INFO ][root] Holding setup until preboot stage is completed.
+
+
+i Kibana has not been configured.
+
+Go to http://0.0.0.0:5601/?code=864211 to get started.
+
+
+^Ckeenable@keenable-Latitude-E7470:~$ podman exec -it elasticsearch bash
+elasticsearch@elk:~$  bin/elasticsearch-create-enrollment-token --scope kibana
+eyJ2ZXIiOiI4LjQuMyIsImFkciI6WyIxMC4wLjIuMTAwOjkyMDAiXSwiZmdyIjoiMmU1OTQ0NjBhMjllNzk5NWNkMmNmZTlkNWQ5YzkwMjIwNzYzOThiMWE2OWM4NzYwZWJmNDU4MjlmMzUzYjBiZSIsImtleSI6IkZ2NlFHSVFCSTNnWDBmNE9tel9SOklvNnA4SEtDU3ctbUZMNzlYdUxxMVEifQ==
+elasticsearch@elk:~$ bin/elasticsearch-reset-password -u elastic -i
+This tool will reset the password of the [elastic] user.
+You will be prompted to enter the password.
+Please confirm that you would like to continue [y/N]y
+
+
+Enter password for [elastic]: 
+Re-enter password for [elastic]: 
+Password for the [elastic] user successfully reset.
+elasticsearch@elk:~$ exit
